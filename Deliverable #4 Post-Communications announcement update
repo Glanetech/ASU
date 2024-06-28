@@ -128,7 +128,7 @@ void loop()
   
   // main status handing routine, if rhino is detected AND NOT water temp exceeded 
   // (low low or high high) start motors and water jets, else stop.
-  if (rhinoDetected &! waterTempExceeded) {
+  if (rhinoDetected &! waterTempExceeded &! StartOff) {
     Serial.println("Rhino Carwash started");
     MTR1_Run = TRUE;
     MTR2_Run = TRUE;
