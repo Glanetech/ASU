@@ -1,0 +1,242 @@
+// C++ code
+//
+  #include <Servo.h>
+
+  // declare constants
+  const int MTR1_outpin1 = 3;
+  const int MTR1_outpin2 = 5;
+  const int MTR2_outpin1 = 6;
+  const int MTR2_outpin2 = 9;
+  const int waterValveServoPin = 10;
+  const int pingPin = 11;
+  const int waterTempSensorPin =A0;
+  Servo myservo;  // create servo object to control a servo
+
+    // declare variables
+  int waterTemp;
+  bool MTR1_Run;
+  bool MTR2_Run;
+  bool waterJet_Run;
+  int pingDistance;
+  int pingDistanceToInches;
+  bool rhinoDetected;
+  int const TRUE = 1;
+  int const FALSE = 0;
+  bool waterTempExceeded;
+  long duration, inches, cm;
+  const int waterTempHH = 100;
+  const int waterTempLL = 60;
+  int waterTempReading;
+  int pos; 
+ int rhinoDetectionDistance = 20;
+  bool StartOn;
+  bool StartOff;
+  
+
+void setup()
+{
+
+	// initialize variables so they do not have random startup issues
+  pos = 0;
+  waterTemp = 0;
+  MTR1_Run = 0;
+  MTR2_Run = 0;
+  waterJet_Run = 0;
+  inches = 30;
+  StartOff = 1;
+  StartOn = 0;
+ 
+  // declare pin modes
+  pinMode(MTR1_outpin1, OUTPUT);
+  pinMode(MTR1_outpin2, OUTPUT);
+  pinMode(MTR2_outpin1, OUTPUT);
+  pinMode(MTR2_outpin2, OUTPUT);
+  pinMode(waterValveServoPin, OUTPUT);
+  pinMode(waterTempSensorPin, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  myservo.attach(waterValveServoPin);
+  
+
+  
+ 
+}
+
+void loop()
+{
+
+
+  
+  
+  Serial.begin(9600);
+  
+	
+  Serial.println("--------------------------------------");
+  
+  
+  waterTempReading = analogRead(waterTempSensorPin);
+  // converting that reading to voltage, for 3.3v arduino use 3.3
+ float voltage = waterTempReading * 5.0;
+ voltage /= 1024.0; 
+   // now print out the temperature
+ float temperatureC = (voltage - 0.5) * 100 ;  //converting from 10 mv per degree wit 500 mV offset
+   // now convert to Fahrenheit
+ float temperatureF = (temperatureC * 9.0 / 5.0) + 32.0;
+  
+  waterTemp = temperatureF;
+  
+  if (waterTemp > waterTempHH){
+    waterTempExceeded = TRUE;
+  }
+  else if (waterTemp < waterTempLL){
+    waterTempExceeded = TRUE;
+    
+  }
+  else {
+   waterTempExceeded = FALSE; 
+  }
+  
+  if (waterTempExceeded){
+    Serial.println("Water Temp Exceeded");
+    Serial.print("Water Temperature: ");
+    Serial.println(waterTemp);
+  }
+  else {
+    Serial.print("Water Temperature: ");
+    Serial.println(waterTemp);
+ 
+  }
+  
+  // motor starting and running logic
+  if (MTR1_Run || MTR2_Run){
+    digitalWrite(MTR1_outpin1, HIGH);
+  	digitalWrite(MTR1_outpin2, LOW);
+    digitalWrite(MTR2_outpin1, LOW);
+    digitalWrite(MTR2_outpin2, HIGH);
+  }
+  else {
+    digitalWrite(MTR1_outpin1, LOW);
+  	digitalWrite(MTR1_outpin2, LOW);
+    digitalWrite(MTR2_outpin1, LOW);
+    digitalWrite(MTR2_outpin2, LOW);
+  
+  }
+  
+ 
+  
+  
+  
+  
+  // main status handing routine, if rhino is detected AND NOT water temp exceeded 
+  // (low low or high high) start motors and water jets, else stop.
+  if (rhinoDetected &! waterTempExceeded) {
+    Serial.println("Rhino Carwash started");
+    MTR1_Run = TRUE;
+    MTR2_Run = TRUE;
+    waterJet_Run = TRUE;
+  }
+  else{
+    Serial.println("Rhino Carwash stopped");
+    MTR1_Run = FALSE;
+    MTR2_Run = FALSE;
+    waterJet_Run = FALSE;
+  }
+  
+  
+    // water solenoid servo handling
+  myservo.write(pos);
+  if (waterJet_Run){
+    
+	pos = 90;              // tell servo to go to position in variable 'pos'  
+    Serial.println("Water Solenoid Open");
+  }
+    else{
+    pos = 0;
+      Serial.println("Water Solenoid closed");
+    }
+  
+  
+  
+   // rhino detection logic
+  inches = microsecondsToInches(duration);
+  if (inches < rhinoDetectionDistance){
+  Serial.println("Rhino Detected");
+    rhinoDetected = TRUE;
+    
+  }
+  else{
+  Serial.println("Rhino Not Detected");
+    rhinoDetected = FALSE;
+  
+  }
+ // establish variables for duration of the ping, and the distance result
+  // in inches and centimeters:
+
+
+  // The PING))) is triggered by a HIGH pulse of 2 or more microseconds.
+  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
+  pinMode(pingPin, OUTPUT);
+  digitalWrite(pingPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(pingPin, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(pingPin, LOW);
+
+  // The same pin is used to read the signal from the PING))): a HIGH pulse
+  // whose duration is the time (in microseconds) from the sending of the ping
+  // to the reception of its echo off of an object.
+  pinMode(pingPin, INPUT);
+  duration = pulseIn(pingPin, HIGH);
+
+  // convert the time into a distance
+  inches = microsecondsToInches(duration);
+  cm = microsecondsToCentimeters(duration);
+  
+  
+ Serial.print("inches: ");
+  Serial.print(inches);
+  Serial.println(" ");
+
+  
+  
+  // messaging and operator communications.
+  String strVar;
+
+  strVar = Serial.readString();
+  
+  if (strVar == "StartOn"){
+    
+    StartOn = TRUE;
+    StartOff = FALSE;
+    
+  }
+    else if (strVar == "StartOff") {
+ 
+      StartOn = FALSE;
+      StartOff = TRUE;
+    }
+  if (StartOn){
+   Serial.println ("Robot start allowed received");
+  }
+  else{
+ 	  Serial.println ("Robot start not allowed received");
+  }
+  
+  
+}
+
+
+long microsecondsToInches(long microseconds) {
+  // According to Parallax's datasheet for the PING))), there are 73.746
+  // microseconds per inch (i.e. sound travels at 1130 feet per second).
+  // This gives the distance travelled by the ping, outbound and return,
+  // so we divide by 2 to get the distance of the obstacle.
+  // See: https://www.parallax.com/package/ping-ultrasonic-distance-sensor-downloads/
+  return microseconds / 74 / 2;
+}
+
+long microsecondsToCentimeters(long microseconds) {
+  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
+  // The ping travels out and back, so to find the distance of the object we
+  // take half of the distance travelled.
+  return microseconds / 29 / 2;
+}
